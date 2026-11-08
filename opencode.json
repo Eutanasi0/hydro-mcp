@@ -1,0 +1,16 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "datos-peru": {
+      "type": "local",
+      "command": [
+        "/home/benjamin/Yo/hydro-mcp/.venv/bin/python",
+        "/home/benjamin/Yo/hydro-mcp/server.py"
+      ],
+      "environment": {
+        "DATOS_DB": "/home/benjamin/Yo/hydro-mcp/data/datos.db"
+      },
+      "enabled": true
+    }
+  }
+}
