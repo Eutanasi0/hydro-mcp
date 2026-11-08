@@ -4,11 +4,11 @@
     "datos-peru": {
       "type": "local",
       "command": [
-        "/home/benjamin/Yo/hydro-mcp/.venv/bin/python",
-        "/home/benjamin/Yo/hydro-mcp/server.py"
+        "/home/usuario/proyectos/hydro-mcp/.venv/bin/python",
+        "/home/usuario/proyectos/hydro-mcp/server.py"
       ],
       "environment": {
-        "DATOS_DB": "/home/benjamin/Yo/hydro-mcp/data/datos.db"
+        "DATOS_DB": "/home/usuario/proyectos/hydro-mcp/data/datos.db"
       },
       "enabled": true
     }
