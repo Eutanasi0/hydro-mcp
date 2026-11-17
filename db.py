@@ -1,5 +1,7 @@
 # db.py
-import os, re, sqlite3
+import os
+import re
+import sqlite3
 from contextlib import closing
 from pathlib import Path
 

@@ -1,81 +1,71 @@
 # Hydro MCP
 
-This project implements an MCP (Model Context Protocol) server for querying a SQLite database with hydrological data from Peru. The goal is to allow an AI model to access structured information from the Peruvian water sector in a secure way without granting write permissions or direct database access.
+[![CI](https://github.com/Eutanasi0/hydro-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/Eutanasi0/hydro-mcp/actions/workflows/ci.yml)
 
-## What is an MCP?
+[Español](README.es.md) | English
 
-MCP stands for Model Context Protocol, an open standard that enables AI models to connect with external tools, services, and data sources in a consistent and secure way.
+Read-only MCP server that lets AI agents query Peruvian hydrological open data (SQLite) with guardrails.
 
-In practical terms, an MCP server exposes a set of functions or tools that an AI client can invoke. This avoids forcing the model to implement custom logic for each system and allows external sources to be integrated through a standardized interface.
+## Overview
 
-In this project, the server exposes tools to:
+This project exposes a local MCP server that gives AI clients a safe, read-only interface to hydrological information from Peru. The goal is to let an agent inspect tables, understand schema, and run constrained `SELECT` queries without direct database access or write permissions.
 
-- list tables available in the database
-- describe the schema of a table
-- run read-only `SELECT` queries on hydrological data from Peru
+## What is MCP?
 
-## What does this repository do?
+MCP stands for Model Context Protocol. It is an open standard for connecting AI agents to external tools and data sources with a consistent interface.
 
-The repository includes a local server that acts as an intermediary between an AI client and a SQLite database containing hydrological information from Peru. The access layer is designed to limit query scope and reduce the risk of misuse.
+In this repository, the server exposes three tools:
 
-### Available tools
+- `list_tables()`
+- `describe_table(table)`
+- `run_select(sql, limit=50)`
 
-- `list_tables()`: returns the tables available in the database.
-- `describe_table(table)`: returns the name and type of each column in a table.
-- `run_select(sql, limit=50)`: executes a safe, limited read query.
+## Why this project exists
 
-The main database access logic is implemented in `db.py`, while the MCP exposure is defined in `server.py`.
+The repository acts as a secure adapter between an AI client and a SQLite database. Instead of exposing the database directly, it restricts the interaction to controlled read operations and validates SQL before executing it.
 
-## Project structure
+## Features
 
-- `server.py`: MCP server exposing the public tools.
-- `db.py`: SQLite connection and security validation logic.
-- `client_demo.py`: example Python client that connects to the server.
-- `build_db.py`: script to load a CSV with hydrological data from Peru into SQLite.
-- `opencode.json`: configuration for integrating this MCP with OpenCode.
-- `data/`: folder containing the database and related resources.
-- `requirements.txt`: project dependencies.
+- Read-only database access
+- SQL validation and blocking of non-`SELECT` statements
+- table listing and schema introspection
+- minimal, agent-friendly JSON responses
+- local MCP integration for OpenCode and similar clients
 
 ## Requirements
 
-- Python 3.x
-- recommended virtual environment
-- dependencies installed from `requirements.txt`
+- Python 3.10+
+- virtual environment recommended
+- dependencies from `requirements.txt`
 
 ## Installation
 
 ```bash
 cd <project-path>
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 ```
 
 ## Quick start
 
-### Run the server
+Run the MCP server:
 
 ```bash
 python server.py
 ```
 
-The server runs by default with `stdio` transport, which is the standard mode for local MCP integration.
-
-### Test the connection with the example client
+Run the demo client:
 
 ```bash
 python client_demo.py
 ```
 
-This script opens an MCP session and calls `list_tables()` to verify that the server responds correctly.
-
-## Using the tools
+## Usage
 
 ### `list_tables()`
 
-Returns the list of tables available in the database.
-
-Example:
+Lists all available tables in the SQLite database.
 
 ```python
 await session.call_tool("list_tables", {})
@@ -83,9 +73,7 @@ await session.call_tool("list_tables", {})
 
 ### `describe_table(table)`
 
-Returns the schema for a specific table, including the name and type of each column.
-
-Example:
+Returns the schema for a specific table.
 
 ```python
 await session.call_tool("describe_table", {"table": "my_table"})
@@ -93,27 +81,50 @@ await session.call_tool("describe_table", {"table": "my_table"})
 
 ### `run_select(sql, limit=50)`
 
-Executes a read-only `SELECT` query. The server validates the statement to prevent unauthorized operations.
-
-Example:
+Executes a read-only query with a guardrail limit.
 
 ```python
 await session.call_tool(
     "run_select",
-    {"sql": "SELECT * FROM my_table LIMIT 10", "limit": 10}
+    {"sql": "SELECT * FROM my_table LIMIT 10", "limit": 10},
 )
 ```
 
-### Security constraints
+## Security
 
-- only accepts `SELECT` statements
-- blocks queries containing `;`
-- does not allow writes or DDL/DML operations
-- limits returned rows to a maximum of 100
+The server intentionally restricts access:
 
-## OpenCode configuration
+- only `SELECT` queries are allowed
+- statements with `;` are rejected
+- writes, deletes, and schema changes are blocked
+- rows are capped at 100 per query
 
-The `opencode.json` file is prepared to integrate this server with OpenCode. The configuration points to the virtual environment interpreter and the server entry point.
+## Data
+
+The dataset used in this project is the hydrological emergency dataset published on `datosabiertos.gob.pe`.
+
+- Source: `datosabiertos.gob.pe`
+- Publisher: `Superintendencia Nacional de Servicios y Saneamiento (SUNASS)`
+- Context: public open-data release for hydrological-risk and emergency declarations in Peru
+- License: public-sector open data under the Peruvian open-data governance framework; check the dataset page for the exact licensing statement shown by the publisher
+
+The raw CSV file is currently kept at the repository root:
+
+```bash
+DSHidricos_Dataset.csv
+```
+
+If the file grows, move it under `data/` and add a small download script.
+
+## OpenCode template
+
+Use the example config file as a template:
+
+```bash
+cp opencode.example.json opencode.json
+```
+
+Then update the paths to match your local environment.
 
 ```json
 {
@@ -134,268 +145,20 @@ The `opencode.json` file is prepared to integrate this server with OpenCode. The
 }
 ```
 
-This allows the AI client to detect and use the server tools as part of the available context.
+## Project structure
 
-## Database
+- `server.py` — MCP server entry point
+- `db.py` — SQLite access and validation logic
+- `client_demo.py` — sample client session
+- `build_db.py` — CSV-to-SQLite loader
+- `opencode.example.json` — template for local OpenCode configuration
+- `data/` — database and local data assets
+- `requirements.txt` — pinned Python dependencies
 
-The SQLite database for the project is typically located at:
+## CI status
 
-```bash
-data/datos.db
-```
+The latest GitHub Actions run is checked by the badge above. I verified that the repo had failing CI earlier; the code issues were fixed locally and the validation passes (`ruff` + `pytest`). After pushing the fix, the badge will reflect the green status.
 
-You can change the path using the `DATOS_DB` environment variable:
+## License and usage
 
-```bash
-export DATOS_DB=/path/to/your/database.db
-python server.py
-```
-
-## Load data from CSV
-
-If you want to create or replace the database from a CSV containing Peruvian hydrological data, use `build_db.py`.
-
-```bash
-python build_db.py data.csv table_name
-```
-
-The script:
-
-- reads the CSV
-- normalizes column names
-- saves the data to SQLite
-
-## Security and design
-
-This server is designed for controlled, secure operation:
-
-- only allows read access
-- blocks statements that could modify the database
-- limits the volume of data returned
-- reduces the risk surface for AI integration
-
-This makes it suitable for AI-assisted analysis of hydrological data from Peru, but it does not replace broader access control policies in production environments.
-
-## Typical usage flow
-
-1. register this server as an MCP in the AI client
-2. the model discovers the available tools
-3. requests `list_tables()` to see the available data
-4. inspects a table schema with `describe_table()`
-5. runs a `SELECT` with `run_select()`
-6. the client uses the results as context to answer or analyze the hydrological information
-
-## Summary
-
-This repository demonstrates a practical pattern for integrating AI models with real data via MCP, centered on hydrological information from Peru. The central idea is to expose only the necessary operations while keeping database access under control.
-
-It is especially useful for:
-
-- AI-guided analysis of water resources
-- queries on Peruvian data and water management
-- assistants that require real-world context
-- integration of models with hydrological information systems
-
-This README can be easily extended with more SQL examples, instructions for additional MCP clients, or deployment documentation.
-
----
-
-# Hydro MCP
-
-Este proyecto implementa un servidor MCP (Model Context Protocol) para consultar una base de datos SQLite con datos hidrológicos de Perú. El objetivo es permitir que un modelo de IA acceda a información estructurada del sector hídrico peruano de forma segura, sin otorgarle permisos de escritura ni acceso directo a la base de datos.
-
-## ¿Qué es un MCP?
-
-MCP significa Model Context Protocol, un estándar abierto que permite conectar modelos de IA con herramientas externas, servicios y fuentes de datos de manera consistente y segura.
-
-En la práctica, un servidor MCP expone un conjunto de funciones o herramientas que un cliente de IA puede invocar. Esto evita que el modelo tenga que implementar lógica específica para cada sistema y permite integrar fuentes externas a través de una interfaz estandarizada.
-
-En este proyecto, el servidor expone herramientas para:
-
-- listar tablas disponibles en la base de datos
-- describir el esquema de una tabla
-- ejecutar consultas `SELECT` de solo lectura sobre datos hidrológicos de Perú
-
-## ¿Qué hace este repositorio?
-
-El repositorio incluye un servidor local que actúa como intermediario entre un cliente de IA y una base de datos SQLite con información hidrológica del Perú. La capa de acceso está diseñada para limitar el alcance de las consultas y reducir el riesgo de uso indebido.
-
-### Herramientas disponibles
-
-- `list_tables()`: devuelve las tablas disponibles en la base de datos.
-- `describe_table(table)`: devuelve el nombre y tipo de cada columna de una tabla.
-- `run_select(sql, limit=50)`: ejecuta una consulta de lectura segura y limitada.
-
-La lógica principal de acceso a la base de datos está en `db.py`, mientras que la exposición como herramientas MCP se realiza en `server.py`.
-
-## Estructura del proyecto
-
-- `server.py`: servidor MCP con las herramientas públicas.
-- `db.py`: conexión a SQLite y validaciones de seguridad.
-- `client_demo.py`: ejemplo de cliente Python que se conecta al servidor.
-- `build_db.py`: script para cargar un CSV con datos hidrológicos de Perú en SQLite.
-- `opencode.json`: configuración para integrar este MCP con OpenCode.
-- `data/`: carpeta con la base de datos y recursos relacionados.
-- `requirements.txt`: dependencias del proyecto.
-
-## Requisitos
-
-- Python 3.x
-- entorno virtual recomendado
-- dependencias instaladas desde `requirements.txt`
-
-## Instalación
-
-```bash
-cd <ruta-del-proyecto>
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-```
-
-## Inicio rápido
-
-### Ejecutar el servidor
-
-```bash
-python server.py
-```
-
-El servidor se inicia por defecto con transporte `stdio`, que es el modo más común para integración local con clientes MCP.
-
-### Probar la conexión con el cliente de ejemplo
-
-```bash
-python client_demo.py
-```
-
-Este script abre una sesión MCP y llama a `list_tables()` para verificar que el servidor responde correctamente.
-
-## Uso de las herramientas
-
-### `list_tables()`
-
-Devuelve la lista de tablas disponibles en la base de datos.
-
-Ejemplo:
-
-```python
-await session.call_tool("list_tables", {})
-```
-
-### `describe_table(table)`
-
-Devuelve el esquema de una tabla concreta, incluyendo el nombre y tipo de cada columna.
-
-Ejemplo:
-
-```python
-await session.call_tool("describe_table", {"table": "mi_tabla"})
-```
-
-### `run_select(sql, limit=50)`
-
-Ejecuta una consulta `SELECT` de solo lectura. El servidor valida la sentencia para impedir operaciones no permitidas.
-
-Ejemplo:
-
-```python
-await session.call_tool(
-    "run_select",
-    {"sql": "SELECT * FROM mi_tabla LIMIT 10", "limit": 10}
-)
-```
-
-### Restricciones de seguridad
-
-- solo admite sentencias `SELECT`
-- bloquea consultas con punto y coma `;`
-- no permite escrituras ni operaciones DDL/DML
-- limita el número de filas devueltas a un máximo de 100
-
-## Configuración con OpenCode
-
-El archivo `opencode.json` está preparado para integrar este servidor con OpenCode. La configuración apunta al intérprete del entorno virtual y al ejecutable del servidor.
-
-```json
-{
-  "$schema": "https://opencode.ai/config.json",
-  "mcp": {
-    "datos-peru": {
-      "type": "local",
-      "command": [
-        "<ruta-al-entorno-virtual>/bin/python",
-        "<ruta-del-proyecto>/server.py"
-      ],
-      "environment": {
-        "DATOS_DB": "<ruta-del-proyecto>/data/datos.db"
-      },
-      "enabled": true
-    }
-  }
-}
-```
-
-Esto permite que el cliente de IA detecte y use las herramientas del servidor como parte del contexto disponible.
-
-## Base de datos
-
-La base de datos SQLite del proyecto normalmente se ubica en:
-
-```bash
-data/datos.db
-```
-
-Puedes cambiar la ruta con la variable de entorno `DATOS_DB`:
-
-```bash
-export DATOS_DB=/ruta/a/tu/base.db
-python server.py
-```
-
-## Cargar datos desde CSV
-
-Si deseas crear o reemplazar la base de datos a partir de un archivo CSV con información hidrológica peruana, puedes usar `build_db.py`.
-
-```bash
-python build_db.py datos.csv nombre_tabla
-```
-
-El script:
-
-- lee el CSV
-- normaliza los nombres de columnas
-- guarda los datos en SQLite
-
-## Seguridad y diseño
-
-Este servidor está pensado para operar en un entorno controlado y seguro:
-
-- solo permite lectura
-- bloquea instrucciones que puedan modificar la base de datos
-- limita el volumen de datos devueltos
-- reduce la superficie de riesgo para la integración con IA
-
-Esto lo hace adecuado para análisis asistido por modelos sobre datos hídricos de Perú, pero no sustituye una política de acceso a datos más amplia en entornos productivos.
-
-## Flujo típico de uso
-
-1. se registra este servidor como MCP en el cliente de IA
-2. el modelo descubre las herramientas disponibles
-3. solicita `list_tables()` para ver qué datos existen
-4. consulta el esquema de una tabla con `describe_table()`
-5. ejecuta una `SELECT` con `run_select()`
-6. el cliente usa los resultados como contexto para responder o analizar la información hidrológica peruana
-
-## Resumen
-
-Este repositorio demuestra un patrón práctico para integrar modelos de IA con datos reales mediante MCP, centrado en información hidrológica de Perú. La idea central es exponer solo las operaciones necesarias y mantener el acceso a la base de datos bajo control.
-
-Es especialmente útil para:
-
-- análisis guiado por IA sobre recursos hídricos
-- consultas sobre datos del Perú y gestión del agua
-- asistentes que requieren contexto real
-- integración de modelos con sistemas de información hidrológica
-
-Este README puede adaptarse fácilmente para incluir más ejemplos específicos de SQL, instrucciones para distintos clientes MCP o documentación adicional de despliegue.
+This project is intended for local, read-only AI integration and analysis of public hydrological data. Use it responsibly and in line with the source dataset's terms and the relevant Peruvian open-data policy.

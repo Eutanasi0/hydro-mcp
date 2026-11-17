@@ -1,6 +1,10 @@
 # tests/test_db.py
-import sqlite3, pytest
+import sqlite3
+
+import pytest
+
 import db
+
 
 @pytest.fixture
 def path(tmp_path):

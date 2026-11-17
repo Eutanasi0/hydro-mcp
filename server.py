@@ -1,5 +1,8 @@
-import logging, sys
+import logging
+import sys
+
 from mcp.server.mcpserver import MCPServer
+
 import db
 
 logging.basicConfig(stream=sys.stderr, level=logging.INFO)  # nunca print()
